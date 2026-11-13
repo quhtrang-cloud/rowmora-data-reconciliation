@@ -1,0 +1,73 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect
+    x="4"
+    y="4"
+    width="92"
+    height="92"
+    rx="24"
+    fill="#173E2B"
+  />
+
+  <g transform="rotate(-5 40 43)">
+    <rect
+      x="16"
+      y="17"
+      width="54"
+      height="62"
+      rx="11"
+      fill="#B8CBAF"
+    />
+
+    <rect
+      x="22"
+      y="25"
+      width="42"
+      height="8"
+      rx="3"
+      fill="#6F9776"
+    />
+
+    <path
+      d="M22 40H64M22 50H64M22 60H64"
+      stroke="#83A489"
+      stroke-width="4"
+      stroke-linecap="round"
+    />
+  </g>
+
+  <g transform="rotate(-3 62 62)">
+    <rect
+      x="35"
+      y="33"
+      width="51"
+      height="53"
+      rx="9"
+      fill="#F7F4EE"
+    />
+
+    <rect
+      x="41"
+      y="41"
+      width="39"
+      height="7"
+      rx="3.5"
+      fill="#376D4B"
+    />
+
+    <path
+      d="M41 56H80M41 66H80M41 76H80M54 50V81M67 50V81"
+      fill="none"
+      stroke="#779B7D"
+      stroke-width="1.7"
+    />
+
+    <rect
+      x="67"
+      y="56"
+      width="13"
+      height="10"
+      fill="#D6A44E"
+    />
+  </g>
+</svg>

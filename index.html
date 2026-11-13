@@ -1,10 +1,23 @@
+
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>rowmora</title>
+    <meta name="theme-color" content="#f8f6f1" />
+    <meta name="description" content="Rowmora helps you compare datasets, spot differences, and review changes. Start with two CSV files." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Rowmora | Data Clarity, Made Simple</title>
+    <script>
+      (() => {
+        let theme = "light";
+        try {
+          if (localStorage.getItem("rowmora-theme") === "dark") theme = "dark";
+        } catch {}
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", theme === "dark" ? "#191e1c" : "#f8f6f1");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,27 +1,64 @@
 
-<svg xmlns="http://www.w3.org/2000/svg"
-     viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <rect
-    width="64"
-    height="64"
-    rx="15"
-    fill="#234d3c"
+    x="4"
+    y="4"
+    width="92"
+    height="92"
+    rx="24"
+    fill="#173E2B"
   />
-  <path
-    d="M16 21H35
-       M16 32H29
-       M16 43H35"
-    fill="none"
-    stroke="#ffffff"
-    stroke-width="4"
-    stroke-linecap="round"
-  />
-  <path
-    d="M39 31L46 38L55 26"
-    fill="none"
-    stroke="#ffffff"
-    stroke-width="4.5"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
+
+  <g transform="rotate(-5 40 43)">
+    <rect
+      x="16"
+      y="17"
+      width="54"
+      height="62"
+      rx="11"
+      fill="#B8CBAF"
+    />
+
+    <path
+      d="M23 31H61M23 43H61M23 55H61"
+      stroke="#719A79"
+      stroke-width="5"
+      stroke-linecap="round"
+    />
+  </g>
+
+  <g transform="rotate(-3 62 62)">
+    <rect
+      x="35"
+      y="33"
+      width="51"
+      height="53"
+      rx="9"
+      fill="#F7F4EE"
+    />
+
+    <rect
+      x="41"
+      y="41"
+      width="39"
+      height="7"
+      rx="3.5"
+      fill="#376D4B"
+    />
+
+    <path
+      d="M41 58H80M41 72H80M57 51V80"
+      fill="none"
+      stroke="#779B7D"
+      stroke-width="2.5"
+    />
+
+    <rect
+      x="65"
+      y="58"
+      width="15"
+      height="14"
+      fill="#D6A44E"
+    />
+  </g>
 </svg>

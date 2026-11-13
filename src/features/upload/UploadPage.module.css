@@ -1,7 +1,6 @@
 
 .page {
-  min-height: calc(100vh - 60px);
-  min-height: calc(100dvh - 60px);
+  width: 100%;
   padding: 32px var(--page-padding-x) 48px;
 }
 
@@ -12,12 +11,22 @@
 }
 
 .step {
-  display: inline-block;
-  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--color-sage-dark);
   font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.5;
+}
+
+.step::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
 }
 
 .content h1 {
@@ -27,7 +36,7 @@
   font-size: clamp(2rem, 4.5vw, 3rem);
   font-weight: 600;
   line-height: 1.2;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   text-wrap: balance;
 }
 
@@ -45,9 +54,9 @@
   gap: var(--space-6);
   margin-top: var(--space-8);
   padding: var(--space-6);
-  border: 1px solid var(--color-border);
+  border: 1px solid #d9e4d4;
   border-radius: var(--radius-lg);
-  background: var(--color-surface-muted);
+  background: var(--color-surface-sage);
 }
 
 .sampleSection > * {
@@ -56,6 +65,7 @@
 
 .sampleSection h2 {
   margin: 0 0 var(--space-2);
+  color: var(--color-primary);
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.4;
@@ -136,11 +146,12 @@
 .rowCount {
   flex-shrink: 0;
   padding: var(--space-2) var(--space-3);
+  border: 1px solid #d9e4d4;
   border-radius: 999px;
-  background: var(--color-surface-muted);
-  color: var(--color-text-secondary);
+  background: var(--color-surface-sage);
+  color: var(--color-sage-dark);
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.4;
   white-space: nowrap;
 }
@@ -173,8 +184,8 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--color-surface-muted);
-  color: var(--color-text);
+  background: var(--color-surface-sage);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -191,7 +202,7 @@
 }
 
 .previewTableWrapper tbody tr:hover {
-  background: var(--color-surface-muted);
+  background: #f8faf6;
 }
 
 .previewTableWrapper:focus-visible {
@@ -207,8 +218,6 @@
 
 @media (max-width: 700px) {
   .page {
-    min-height: calc(100vh - 56px);
-    min-height: calc(100dvh - 56px);
     padding: 24px var(--page-padding-x) 32px;
   }
 
@@ -251,5 +260,11 @@
 
   .actions > button {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .previewTableWrapper tbody tr {
+    transition: none;
   }
 }
