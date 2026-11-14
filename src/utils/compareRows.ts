@@ -21,114 +21,225 @@ export type ComparisonRow = {
   differences: RowDifference[];
 };
 
+export type IssueType = "duplicate_key" | "missing_key";
+
+export type IssueSource = "A" | "B";
+
+export type ComparisonIssue = {
+  type: IssueType;
+  source: IssueSource;
+  key: string;
+  rowNumbers: number[];
+  rows: CsvRow[];
+};
+
 export type ComparisonResult = {
   rows: ComparisonRow[];
   summary: Record<RowStatus, number>;
+  issues: ComparisonIssue[];
+  sharedColumns: string[];
+  sourceAOnlyColumns: string[];
+  sourceBOnlyColumns: string[];
 };
 
-function createRowMap(
-  rows: CsvRow[],
-  matchingColumn: string
-): Map<string, CsvRow> {
-  const rowMap = new Map<string, CsvRow>();
+type IndexedRow = {
+  row: CsvRow;
+  rowNumber: number;
+};
 
-  for (const row of rows) {
+type SourceIndex = {
+  records: Map<string, IndexedRow[]>;
+  issues: ComparisonIssue[];
+  missingKeyRows: IndexedRow[];
+};
+
+function indexSource(
+  rows: CsvRow[],
+  matchingColumn: string,
+  source: IssueSource
+): SourceIndex {
+  const records = new Map<string, IndexedRow[]>();
+  const missingKeyRows: IndexedRow[] = [];
+  const issues: ComparisonIssue[] = [];
+
+  rows.forEach((row, index) => {
+    // Row number here refers to the data row position,
+    // not the original Excel worksheet row number.
+    const rowNumber = index + 1;
     const key = (row[matchingColumn] ?? "").trim();
 
+    const indexedRow: IndexedRow = {
+      row,
+      rowNumber,
+    };
+
     if (!key) {
-      throw new Error(
-        `The matching column "${matchingColumn}" contains empty values.`
-      );
+      missingKeyRows.push(indexedRow);
+      return;
     }
 
-    if (rowMap.has(key)) {
-      throw new Error(
-        `Duplicate matching value "${key}" found in column "${matchingColumn}".`
-      );
-    }
+    const existing = records.get(key) ?? [];
+    existing.push(indexedRow);
+    records.set(key, existing);
+  });
 
-    rowMap.set(key, row);
+  if (missingKeyRows.length > 0) {
+    issues.push({
+      type: "missing_key",
+      source,
+      key: "",
+      rowNumbers: missingKeyRows.map(
+        (item) => item.rowNumber
+      ),
+      rows: missingKeyRows.map((item) => item.row),
+    });
   }
 
-  return rowMap;
+  for (const [key, matches] of records) {
+    if (matches.length > 1) {
+      issues.push({
+        type: "duplicate_key",
+        source,
+        key,
+        rowNumbers: matches.map(
+          (item) => item.rowNumber
+        ),
+        rows: matches.map((item) => item.row),
+      });
+    }
+  }
+
+  return {
+    records,
+    issues,
+    missingKeyRows,
+  };
 }
 
 export function compareRows(
-  oldRows: CsvRow[],
-  newRows: CsvRow[],
+  sourceARows: CsvRow[],
+  sourceBRows: CsvRow[],
   matchingColumn: string
 ): ComparisonResult {
   if (!matchingColumn.trim()) {
     throw new Error("Please select a matching column.");
   }
 
-  if (oldRows.length === 0 || newRows.length === 0) {
-    throw new Error("Both files must contain data rows.");
-  }
-
-  const oldColumns = Object.keys(oldRows[0] ?? {});
-  const newColumns = Object.keys(newRows[0] ?? {});
-
   if (
-    !oldColumns.includes(matchingColumn) ||
-    !newColumns.includes(matchingColumn)
+    sourceARows.length === 0 ||
+    sourceBRows.length === 0
   ) {
     throw new Error(
-      `The matching column "${matchingColumn}" must exist in both files.`
+      "Both sources must contain data rows."
     );
   }
 
-  const oldMap = createRowMap(oldRows, matchingColumn);
-  const newMap = createRowMap(newRows, matchingColumn);
-
-  const columns = Array.from(
-    new Set([...oldColumns, ...newColumns])
+  const sourceAColumns = Object.keys(
+    sourceARows[0] ?? {}
   );
 
-  const keys = new Set([
-    ...oldMap.keys(),
-    ...newMap.keys(),
+  const sourceBColumns = Object.keys(
+    sourceBRows[0] ?? {}
+  );
+
+  if (
+    !sourceAColumns.includes(matchingColumn) ||
+    !sourceBColumns.includes(matchingColumn)
+  ) {
+    throw new Error(
+      `The matching column "${matchingColumn}" must exist in both sources.`
+    );
+  }
+
+  const sharedColumns = sourceAColumns.filter(
+    (column) => sourceBColumns.includes(column)
+  );
+
+  const sourceAOnlyColumns = sourceAColumns.filter(
+    (column) => !sourceBColumns.includes(column)
+  );
+
+  const sourceBOnlyColumns = sourceBColumns.filter(
+    (column) => !sourceAColumns.includes(column)
+  );
+
+  const sourceA = indexSource(
+    sourceARows,
+    matchingColumn,
+    "A"
+  );
+
+  const sourceB = indexSource(
+    sourceBRows,
+    matchingColumn,
+    "B"
+  );
+
+  const issues: ComparisonIssue[] = [
+    ...sourceA.issues,
+    ...sourceB.issues,
+  ];
+
+  const allKeys = new Set([
+    ...sourceA.records.keys(),
+    ...sourceB.records.keys(),
   ]);
 
-  const rows: ComparisonRow[] = [];
+  const comparisonRows: ComparisonRow[] = [];
 
-  for (const key of keys) {
-    const oldRow = oldMap.get(key);
-    const newRow = newMap.get(key);
+  for (const key of allKeys) {
+    const sourceAMatches =
+      sourceA.records.get(key) ?? [];
 
-    if (!oldRow && newRow) {
-      rows.push({
+    const sourceBMatches =
+      sourceB.records.get(key) ?? [];
+
+    // If a key is duplicated in either source,
+    // exclude the entire key group from automatic matching.
+    if (
+      sourceAMatches.length > 1 ||
+      sourceBMatches.length > 1
+    ) {
+      continue;
+    }
+
+    const sourceARow = sourceAMatches[0]?.row;
+    const sourceBRow = sourceBMatches[0]?.row;
+
+    if (!sourceARow && sourceBRow) {
+      comparisonRows.push({
         key,
         status: "added",
-        newRow,
+        newRow: sourceBRow,
         differences: [],
       });
       continue;
     }
 
-    if (oldRow && !newRow) {
-      rows.push({
+    if (sourceARow && !sourceBRow) {
+      comparisonRows.push({
         key,
         status: "removed",
-        oldRow,
+        oldRow: sourceARow,
         differences: [],
       });
       continue;
     }
 
-    if (!oldRow || !newRow) {
+    if (!sourceARow || !sourceBRow) {
       continue;
     }
 
     const differences: RowDifference[] = [];
 
-    for (const column of columns) {
+    // Compare only columns present in both sources.
+    for (const column of sharedColumns) {
       if (column === matchingColumn) {
         continue;
       }
 
-      const oldValue = oldRow[column] ?? "";
-      const newValue = newRow[column] ?? "";
+      const oldValue = sourceARow[column] ?? "";
+      const newValue = sourceBRow[column] ?? "";
 
       if (oldValue !== newValue) {
         differences.push({
@@ -139,14 +250,14 @@ export function compareRows(
       }
     }
 
-    rows.push({
+    comparisonRows.push({
       key,
       status:
         differences.length > 0
           ? "changed"
           : "unchanged",
-      oldRow,
-      newRow,
+      oldRow: sourceARow,
+      newRow: sourceBRow,
       differences,
     });
   }
@@ -158,12 +269,16 @@ export function compareRows(
     unchanged: 0,
   };
 
-  for (const row of rows) {
+  for (const row of comparisonRows) {
     summary[row.status] += 1;
   }
 
   return {
-    rows,
+    rows: comparisonRows,
     summary,
+    issues,
+    sharedColumns,
+    sourceAOnlyColumns,
+    sourceBOnlyColumns,
   };
 }

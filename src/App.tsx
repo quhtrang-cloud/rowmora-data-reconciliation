@@ -8,10 +8,21 @@ import "./App.css";
 
 type Page = "welcome" | "upload" | "comparison";
 
+function pageFromHash(): Page {
+  if (window.location.hash === "#/upload") return "upload";
+  if (window.location.hash === "#/compare") return "comparison";
+  return "welcome";
+}
+
+function urlForPage(page: Page): string {
+  const hash = page === "welcome" ? "" : page === "upload" ? "#/upload" : "#/compare";
+  return `${window.location.pathname}${window.location.search}${hash}`;
+}
+
 const exampleChanges = [
-  { key: "P002", field: "Quantity", before: "36", after: "29", status: "Changed", className: "changed" },
-  { key: "P046", field: "New product", before: "—", after: "Added", status: "Added", className: "added" },
-  { key: "P007", field: "Product record", before: "Present", after: "—", status: "Removed", className: "removed" },
+  { key: "P002", field: "Quantity", sourceA: "36", sourceB: "29", status: "Changed", className: "changed" },
+  { key: "P046", field: "New product", sourceA: "—", sourceB: "Present", status: "Added", className: "added" },
+  { key: "P007", field: "Product record", sourceA: "Present", sourceB: "—", status: "Removed", className: "removed" },
 ] as const;
 
 function ThemeIcon({ theme }: { theme: "light" | "dark" }) {
@@ -28,7 +39,7 @@ function ThemeIcon({ theme }: { theme: "light" | "dark" }) {
 }
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>("welcome");
+  const [currentPage, setCurrentPage] = useState<Page>(() => pageFromHash());
   const [files, setFiles] = useState<File[]>([]);
   const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -82,7 +93,40 @@ function App() {
     };
   }, [isAboutOpen]);
 
-  function navigateTo(page: Page) {
+  // Sync browser Back/Forward with the two-step workflow.
+  useEffect(() => {
+    function handleHistoryChange() {
+      const requested = pageFromHash();
+      const nextPage = requested === "comparison" && parsedFiles.length !== 2
+        ? "upload"
+        : requested;
+
+      if (nextPage !== requested) {
+        window.history.replaceState(null, "", urlForPage(nextPage));
+      }
+
+      setCurrentPage(nextPage);
+      setIsAboutOpen(false);
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+
+    window.addEventListener("popstate", handleHistoryChange);
+    window.addEventListener("hashchange", handleHistoryChange);
+    handleHistoryChange();
+
+    return () => {
+      window.removeEventListener("popstate", handleHistoryChange);
+      window.removeEventListener("hashchange", handleHistoryChange);
+    };
+  }, [parsedFiles.length]);
+
+  function navigateTo(page: Page, replace = false) {
+    if (replace) {
+      window.history.replaceState(null, "", urlForPage(page));
+    } else if (pageFromHash() !== page) {
+      window.history.pushState(null, "", urlForPage(page));
+    }
+
     setCurrentPage(page);
     setIsAboutOpen(false);
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -93,16 +137,20 @@ function App() {
     navigateTo("comparison");
   }
 
+  function showHowItWorks() {
+    if (currentPage !== "welcome") {
+      navigateTo("welcome");
+      window.requestAnimationFrame(() => {
+        document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    } else {
+      document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   function renderPage() {
-    if (currentPage === "upload") {
-      return <UploadPage files={files} onFilesChange={setFiles} onContinue={handleContinue} />;
-    }
-
-    if (currentPage === "comparison") {
-      return <ComparisonPage files={parsedFiles} onBack={() => navigateTo("upload")} />;
-    }
-
     return (
+      <>
       <main className="welcome">
         <div className="welcome__inner">
           <div className="welcome__copy">
@@ -116,17 +164,17 @@ function App() {
             </h1>
 
             <p className="welcome__description">
-              Compare datasets, spot differences, and review changes with clarity and confidence.
+              Compare two spreadsheets, find missing records, spot differences, and review issues that need attention.
             </p>
 
             <div className="welcome__actions">
               <Button type="button" onClick={() => navigateTo("upload")}>Start a comparison</Button>
             </div>
 
-            <p className="welcome__note">Currently supporting CSV comparisons.</p>
+            <p className="welcome__note">Supports CSV and Excel (.xlsx) files. No account required.</p>
           </div>
 
-          <section className="welcome-preview" aria-label="Example CSV comparison results">
+          <section className="welcome-preview" aria-label="Example file comparison results">
             <div className="welcome-preview__top">
               <div className="welcome-preview__windowDots" aria-hidden="true">
                 <span />
@@ -140,7 +188,7 @@ function App() {
               <div className="welcome-preview__heading">
                 <div>
                   <span className="welcome-preview__overline">INVENTORY REVIEW</span>
-                  <h2>See what changed.</h2>
+                  <h2>Comparison results</h2>
                 </div>
                 <span className="welcome-preview__fileTag">CSV</span>
               </div>
@@ -158,6 +206,10 @@ function App() {
                   <strong>18</strong>
                   <span>Changed</span>
                 </div>
+                <div className="welcome-preview__stat welcome-preview__stat--unchanged">
+                  <strong>12</strong>
+                  <span>Unchanged</span>
+                </div>
               </div>
 
               <div className="welcome-preview__tableWrapper">
@@ -166,8 +218,8 @@ function App() {
                     <tr>
                       <th scope="col">Record</th>
                       <th scope="col">Field</th>
-                      <th scope="col">Before</th>
-                      <th scope="col">After</th>
+                      <th scope="col">Source A</th>
+                      <th scope="col">Source B</th>
                       <th scope="col">Status</th>
                     </tr>
                   </thead>
@@ -176,8 +228,8 @@ function App() {
                       <tr key={change.key}>
                         <td className="welcome-preview__key">{change.key}</td>
                         <td>{change.field}</td>
-                        <td>{change.before}</td>
-                        <td>{change.after}</td>
+                        <td>{change.sourceA}</td>
+                        <td>{change.sourceB}</td>
                         <td>
                           <span className={`welcome-preview__status welcome-preview__status--${change.className}`}>
                             {change.status}
@@ -191,12 +243,39 @@ function App() {
 
               <div className="welcome-preview__bottom">
                 <span className="welcome-preview__legendDot" aria-hidden="true" />
-                A clearer picture, row by row.
+                Illustrative data · Added = only in B; Removed = only in A.
               </div>
             </div>
           </section>
         </div>
       </main>
+      <section id="how-it-works" className="how-it-works" aria-labelledby="how-it-works-title">
+        <div className="how-it-works__inner">
+          <span className="how-it-works__eyebrow">A SIMPLE WORKFLOW</span>
+          <h2 id="how-it-works-title" className="how-it-works__title">How it works</h2>
+          <p className="how-it-works__intro">
+            From two data sources to a clearer view of what needs attention.
+          </p>
+          <div className="how-it-works__grid">
+            <article className="how-it-works__step">
+              <span className="how-it-works__number" aria-hidden="true">01</span>
+              <h3>Choose your sources</h3>
+              <p>Upload CSV or Excel files, then choose the worksheets and header rows you need.</p>
+            </article>
+            <article className="how-it-works__step">
+              <span className="how-it-works__number" aria-hidden="true">02</span>
+              <h3>Match your records</h3>
+              <p>Select a shared column, such as an ID or booking reference, to match records.</p>
+            </article>
+            <article className="how-it-works__step">
+              <span className="how-it-works__number" aria-hidden="true">03</span>
+              <h3>Review the results</h3>
+              <p>Explore differences, missing records, and duplicate keys that need a closer look.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </>
     );
   }
 
@@ -210,7 +289,13 @@ function App() {
               <span className="site-header__name">rowmora</span>
             </button>
 
-            <div className="site-header__actions">
+            <nav className="site-header__actions" aria-label="Main navigation">
+              <button ref={aboutButtonRef} type="button" className="site-header__about" onClick={() => setIsAboutOpen(true)} aria-haspopup="dialog">
+                About
+              </button>
+              <button type="button" className="site-header__about" onClick={showHowItWorks}>
+                How it works
+              </button>
               <button
                 type="button"
                 className="theme-toggle"
@@ -220,15 +305,20 @@ function App() {
               >
                 <ThemeIcon theme={theme} />
               </button>
-
-              <button ref={aboutButtonRef} type="button" className="site-header__about" onClick={() => setIsAboutOpen(true)} aria-haspopup="dialog">
-                About
-              </button>
-            </div>
+            </nav>
           </div>
         </header>
 
-        <div className="app__main">{renderPage()}</div>
+        <div className="app__main">
+          {/* Keep UploadPage mounted so worksheet and header-row choices survive navigation. */}
+          <div hidden={currentPage !== "upload"}>
+            <UploadPage files={files} onFilesChange={setFiles} onContinue={handleContinue} />
+          </div>
+          {currentPage === "comparison" && (
+            <ComparisonPage files={parsedFiles} onBack={() => navigateTo("upload", true)} />
+          )}
+          {currentPage === "welcome" && renderPage()}
+        </div>
 
         <footer className="site-footer">
           <div className="site-footer__inner">
@@ -252,7 +342,7 @@ function App() {
 
             <h2 id="about-title">A clearer way to work with data.</h2>
             <p id="about-description" className="about-dialog__intro">
-              Rowmora helps you compare datasets, uncover differences, and understand what has changed. Start by comparing two CSV files, matching records, and reviewing results in one clear view.
+              Rowmora helps you compare two data sources, identify missing or different records, and review issues that need attention. Choose CSV or Excel files, match records using a shared column, and explore the results in one place.
             </p>
 
             <div className="about-dialog__features">
@@ -260,21 +350,21 @@ function App() {
                 <span className="about-dialog__featureIcon" aria-hidden="true">01</span>
                 <div>
                   <h3>Compare files</h3>
-                  <p>Upload two CSV files and match records.</p>
+                  <p>Choose CSV or Excel sources and match records using a shared column.</p>
                 </div>
               </div>
               <div className="about-dialog__feature">
                 <span className="about-dialog__featureIcon" aria-hidden="true">02</span>
                 <div>
                   <h3>Spot differences</h3>
-                  <p>Find added, removed, and changed records.</p>
+                  <p>Find records present in only one source and values that differ.</p>
                 </div>
               </div>
               <div className="about-dialog__feature">
                 <span className="about-dialog__featureIcon" aria-hidden="true">03</span>
                 <div>
                   <h3>Review results</h3>
-                  <p>Filter results to focus on what matters.</p>
+                  <p>Filter differences and inspect duplicate or missing keys.</p>
                 </div>
               </div>
             </div>

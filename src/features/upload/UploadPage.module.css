@@ -54,7 +54,7 @@
   gap: var(--space-6);
   margin-top: var(--space-8);
   padding: var(--space-6);
-  border: 1px solid #d9e4d4;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface-sage);
 }
@@ -83,8 +83,15 @@
 }
 
 .error {
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
   color: var(--color-danger);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.statusMessage {
+  margin-top: var(--space-5);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   line-height: 1.6;
 }
@@ -105,6 +112,114 @@
 .previewSection > .description {
   margin: 0;
 }
+
+/* File settings */
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+}
+
+.settingsCard {
+  min-width: 0;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.settingsCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.fileLabel {
+  color: var(--color-sage-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.fileType {
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-sage);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.settingsFileName {
+  margin: 0 0 var(--space-5);
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.settingsFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field label {
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 36px 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.field select:hover {
+  border-color: var(--color-primary);
+}
+
+.field select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.fieldHint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.csvNote {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Data preview */
 
 .previewFile {
   margin-top: var(--space-6);
@@ -146,7 +261,7 @@
 .rowCount {
   flex-shrink: 0;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid #d9e4d4;
+  border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-surface-sage);
   color: var(--color-sage-dark);
@@ -157,7 +272,7 @@
 }
 
 .previewTableWrapper {
-  max-height: 320px;
+  max-height: 360px;
   overflow: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -202,7 +317,7 @@
 }
 
 .previewTableWrapper tbody tr:hover {
-  background: #f8faf6;
+  background: var(--color-surface-sage);
 }
 
 .previewTableWrapper:focus-visible {
@@ -238,6 +353,14 @@
 
   .previewSection {
     margin-top: var(--space-10);
+  }
+
+  .settingsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsCard {
+    padding: var(--space-4);
   }
 
   .previewFile {

@@ -2,11 +2,16 @@
 import { useEffect, useState } from "react";
 import { Button } from "../../components/ui/Button/Button";
 import { parseCsv, type CsvRow } from "../../utils/parseCsv";
+import {
+  getExcelSheetNames,
+  parseExcel,
+} from "../../utils/parseExcel";
 import { FileDropzone } from "./FileDropzone";
 import styles from "./UploadPage.module.css";
 
 export type ParsedFile = {
   fileName: string;
+  sheetName?: string;
   rows: CsvRow[];
 };
 
@@ -22,10 +27,21 @@ type FilePreviewProps = {
   onContinue: (files: ParsedFile[]) => void;
 };
 
+type FileSheet = {
+  fileName: string;
+  sheetNames: string[];
+};
+
+const HEADER_ROW_OPTIONS = Array.from({ length: 100 }, (_, index) => index + 1);
+
 const samplePaths = [
   "/samples/inventory-old.csv",
   "/samples/inventory-new.csv",
 ];
+
+function isExcelFile(file: File): boolean {
+  return file.name.toLowerCase().endsWith(".xlsx");
+}
 
 function FilePreview({
   files,
@@ -33,28 +49,120 @@ function FilePreview({
   onContinue,
 }: FilePreviewProps) {
   const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
+  const [fileSheets, setFileSheets] = useState<FileSheet[]>([]);
+  const [selectedSheets, setSelectedSheets] = useState<string[]>([
+    "",
+    "",
+  ]);
+  const [headerRows, setHeaderRows] = useState<number[]>([1, 1]);
   const [isParsing, setIsParsing] = useState(true);
   const [error, setError] = useState("");
 
+  // Step 1: Discover worksheets in Excel files.
   useEffect(() => {
     let cancelled = false;
 
-    async function readFiles() {
+    async function loadSheets() {
+      setIsParsing(true);
+      setError("");
+      setParsedFiles([]);
+
       try {
         const results = await Promise.all(
           files.map(async (file) => {
-            if (!file.name.toLowerCase().endsWith(".csv")) {
-              throw new Error("Only CSV files are supported.");
+            if (isExcelFile(file)) {
+              const sheetNames = await getExcelSheetNames(file);
+
+              if (sheetNames.length === 0) {
+                throw new Error(
+                  `${file.name} contains no worksheets.`
+                );
+              }
+
+              return {
+                fileName: file.name,
+                sheetNames,
+              };
             }
 
-            const rows = await parseCsv(file);
+            if (file.name.toLowerCase().endsWith(".csv")) {
+              return {
+                fileName: file.name,
+                sheetNames: [],
+              };
+            }
+
+            throw new Error(
+              `${file.name} is not a supported file type.`
+            );
+          })
+        );
+
+        if (!cancelled) {
+          setFileSheets(results);
+          setSelectedSheets(
+            results.map((result) => result.sheetNames[0] ?? "")
+          );
+          setHeaderRows(results.map(() => 1));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Couldn't read your files. Please try again."
+          );
+          setIsParsing(false);
+        }
+      }
+    }
+
+    void loadSheets();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [files]);
+
+  // Step 2: Parse CSV files or selected Excel worksheets.
+  useEffect(() => {
+    if (fileSheets.length !== files.length) return;
+
+    let cancelled = false;
+
+    async function readFiles() {
+      setIsParsing(true);
+      setError("");
+      setParsedFiles([]);
+
+      try {
+        const results = await Promise.all(
+          files.map(async (file, index) => {
+            let rows: CsvRow[];
+
+            if (isExcelFile(file)) {
+              const sheetName = selectedSheets[index];
+
+              if (!sheetName) {
+                throw new Error(
+                  `Please select a worksheet for ${file.name}.`
+                );
+              }
+
+              rows = await parseExcel(file, sheetName, headerRows[index]);
+            } else {
+              rows = await parseCsv(file);
+            }
 
             if (rows.length === 0) {
-              throw new Error(`${file.name} contains no data rows.`);
+              throw new Error(
+                `${file.name} contains no data rows.`
+              );
             }
 
             return {
               fileName: file.name,
+              sheetName: isExcelFile(file) ? selectedSheets[index] : undefined,
               rows,
             };
           })
@@ -83,7 +191,28 @@ function FilePreview({
     return () => {
       cancelled = true;
     };
-  }, [files]);
+  }, [files, fileSheets, selectedSheets, headerRows]);
+
+  function handleSheetChange(index: number, sheetName: string) {
+    setParsedFiles([]);
+    setIsParsing(true);
+    setError("");
+    setHeaderRows((current) => current.map((row, i) => i === index ? 1 : row));
+    setSelectedSheets((current) =>
+      current.map((value, i) =>
+        i === index ? sheetName : value
+      )
+    );
+  }
+
+  function handleHeaderRowChange(index: number, row: number) {
+    setParsedFiles([]);
+    setIsParsing(true);
+    setError("");
+    setHeaderRows((current) =>
+      current.map((value, i) => (i === index ? row : value))
+    );
+  }
 
   const canContinue =
     parsedFiles.length === 2 &&
@@ -93,6 +222,64 @@ function FilePreview({
 
   return (
     <>
+      {fileSheets && fileSheets.length === 2 && (
+        <section className={styles.previewSection} aria-labelledby="configure-title">
+          <h2 id="configure-title">Review your file settings</h2>
+          <p className={styles.description}>
+            Choose the worksheet and column headings before comparing your data.
+          </p>
+          <div className={styles.settingsGrid}>
+            {fileSheets.map((file, index) => {
+              const excel = file.sheetNames.length > 0;
+              return (
+                <div key={`${file.fileName}-${index}`} className={styles.settingsCard}>
+                  <div className={styles.settingsCardHeader}>
+                    <span className={styles.fileLabel}>FILE {index + 1}</span>
+                    <span className={styles.fileType}>{excel ? "XLSX" : "CSV"}</span>
+                  </div>
+                  <p className={styles.settingsFileName}>{file.fileName}</p>
+                  {excel ? (
+                    <div className={styles.settingsFields}>
+                      <div className={styles.field}>
+                        <label htmlFor={`sheet-${index}`}>Worksheet</label>
+                        <select
+                          id={`sheet-${index}`}
+                          value={selectedSheets[index] ?? ""}
+                          onChange={(event) => handleSheetChange(index, event.target.value)}
+                        >
+                          {file.sheetNames.map((sheetName) => (
+                            <option key={sheetName} value={sheetName}>{sheetName}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className={styles.field}>
+                        <label htmlFor={`header-${index}`}>Header row</label>
+                        <select
+                          id={`header-${index}`}
+                          value={headerRows[index] ?? 1}
+                          onChange={(event) => handleHeaderRowChange(index, Number(event.target.value))}
+                        >
+                          {HEADER_ROW_OPTIONS.map((row) => (
+                            <option key={row} value={row}>Row {row}</option>
+                          ))}
+                        </select>
+                        <p className={styles.fieldHint}>
+                          Select the row containing your column names.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className={styles.csvNote}>
+                      CSV files use the first row as column headings.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {isParsing && (
         <p role="status" className={styles.description}>
           Reading your files...
@@ -113,11 +300,13 @@ function FilePreview({
           <h2 id="preview-title">Data preview</h2>
 
           <p className={styles.description}>
-            Review your data before comparing the files.
+            Review your data before comparing the files. Scroll to explore all rows and columns.
           </p>
 
           {parsedFiles.map((file, index) => {
             const columns = Object.keys(file.rows[0] ?? {});
+            const excel = isExcelFile(files[index]);
+            const displayName = file.sheetName ?? file.fileName;
 
             return (
               <div
@@ -126,13 +315,13 @@ function FilePreview({
               >
                 <div className={styles.previewFileHeader}>
                   <div>
-                    <h3>
-                      {index === 0 ? "File 1" : "File 2"}
-                    </h3>
-
-                    <p className={styles.previewFileName}>
-                      {file.fileName}
+                    <p className={styles.fileLabel}>
+                      FILE {index + 1} · {excel ? "XLSX" : "CSV"}
                     </p>
+                    <h3>{displayName}</h3>
+                    {excel && (
+                      <p className={styles.previewFileName}>{file.fileName}</p>
+                    )}
                   </div>
 
                   <span className={styles.rowCount}>
@@ -143,7 +332,7 @@ function FilePreview({
                 <div
                   className={styles.previewTableWrapper}
                   role="region"
-                  aria-label={`${file.fileName} preview`}
+                  aria-label={`${displayName} preview`}
                   tabIndex={0}
                 >
                   <table>
@@ -242,7 +431,8 @@ export function UploadPage({
         <h1>Let's get your files in.</h1>
 
         <p className={styles.description}>
-          Add two CSV files to see a preview before comparing them.
+          Add two CSV or Excel (.xlsx) files to preview
+          and compare your data.
         </p>
 
         <FileDropzone
@@ -253,7 +443,9 @@ export function UploadPage({
         <div className={styles.sampleSection}>
           <div>
             <h2>Want to try it first?</h2>
-            <p>See how Rowmora works with sample spreadsheets.</p>
+            <p>
+              See how Rowmora works with sample spreadsheets.
+            </p>
           </div>
 
           <Button
@@ -276,7 +468,12 @@ export function UploadPage({
 
         {files.length === 2 ? (
           <FilePreview
-            key={files.map((file) => `${file.name}:${file.size}:${file.lastModified}`).join("|")}
+            key={files
+              .map(
+                (file) =>
+                  `${file.name}:${file.size}:${file.lastModified}`
+              )
+              .join("|")}
             files={files}
             isLoadingSample={isLoadingSample}
             onContinue={onContinue}

@@ -11,6 +11,15 @@ type FileDropzoneProps = {
 
 const MAX_FILES = 2;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ACCEPTED_EXTENSIONS = [".csv", ".xlsx"];
+
+function isSupportedFile(file: File): boolean {
+  const fileName = file.name.toLowerCase();
+
+  return ACCEPTED_EXTENSIONS.some((extension) =>
+    fileName.endsWith(extension)
+  );
+}
 
 export function FileDropzone({
   files,
@@ -30,18 +39,12 @@ export function FileDropzone({
       return;
     }
 
-    if (
-      selectedFiles.some(
-        (file) => !file.name.toLowerCase().endsWith(".csv")
-      )
-    ) {
-      setError("Only CSV files are currently supported.");
+    if (selectedFiles.some((file) => !isSupportedFile(file))) {
+      setError("Only CSV and Excel (.xlsx) files are supported.");
       return;
     }
 
-    if (
-      selectedFiles.some((file) => file.size > MAX_FILE_SIZE)
-    ) {
+    if (selectedFiles.some((file) => file.size > MAX_FILE_SIZE)) {
       setError("Each file must be 10 MB or less.");
       return;
     }
@@ -94,21 +97,21 @@ export function FileDropzone({
         <p className={styles.heading}>
           {isFull
             ? "Your files are ready"
-            : "Drop your CSV files here"}
+            : "Drop your CSV or Excel files here"}
         </p>
 
         <p className={styles.hint}>
-          CSV only · Maximum 2 files · 10 MB per file
+          CSV or XLSX · Maximum 2 files · 10 MB per file
         </p>
 
         <input
           ref={inputRef}
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           multiple
           onChange={handleFileChange}
           className={styles.hiddenInput}
-          aria-label="Choose CSV files"
+          aria-label="Choose CSV or Excel files"
           disabled={isFull}
         />
 
