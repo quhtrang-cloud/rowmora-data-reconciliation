@@ -1,21 +1,28 @@
-
 # Rowmora
 
 **A simpler way to compare spreadsheets and make sense of data differences.**
 
 Rowmora is a responsive web application built with React and TypeScript that helps users compare two datasets, identify missing or differing records, and investigate data inconsistencies.
 
-The application supports CSV and Excel (.xlsx) files, allowing users to compare separate files or worksheets within an Excel workbook.
+The application supports CSV and Excel (`.xlsx`) files, allowing users to compare separate files or worksheets within an Excel workbook.
 
 With a straightforward two-step workflow, Rowmora makes it easier to explore differences between datasets without manually checking records row by row.
 
 **[Live Demo](https://rowmora-csv-compare.vercel.app/)**
 
+## Why Rowmora?
+
+Business data is often stored across multiple spreadsheets or exported from different systems. Even when those sources contain related records, their values may not match.
+
+For example, a booking system and a finance export might show different fees for the same booking, contain records missing from one source, or include duplicate booking references. Checking these discrepancies manually can be time-consuming.
+
+Rowmora lets users compare two datasets using a shared identifier, such as a booking reference or product ID. It highlights differences and matching issues for review, but does not decide which source is correct or automatically resolve business inconsistencies.
+
 ## Features
 
 ### File Upload and Data Preparation
 
-- **CSV and Excel support** - Upload CSV or Excel (.xlsx) files.
+- **CSV and Excel support** - Upload CSV or Excel (`.xlsx`) files.
 - **Worksheet selection** - Choose which worksheet to use from an Excel workbook.
 - **Header row selection** - Specify the row containing column headers.
 - **Data preview** - Inspect parsed records before comparing datasets.
@@ -73,7 +80,7 @@ Run the comparison to classify records and inspect field-level differences.
 Rowmora classifies records into four categories:
 
 | Status | Description |
-|---|---|
+| --- | --- |
 | **Added** | A record exists in Source B but not in Source A. |
 | **Removed** | A record exists in Source A but not in Source B. |
 | **Changed** | A matching record contains one or more different field values. |
@@ -96,7 +103,7 @@ Ambiguous records should not be treated as reliable matches without further inve
 ## Tech Stack
 
 | Technology | Purpose |
-|---|---|
+| --- | --- |
 | React | Component-based user interface |
 | TypeScript | Type-safe application development |
 | Vite | Development tooling and production builds |
@@ -120,8 +127,8 @@ Make sure Node.js and npm are installed.
 Clone the repository:
 
 ```bash
-git clone https://github.com/quhtrang-cloud/rowmora-csv-compare.git
-cd rowmora-csv-compare
+git clone https://github.com/quhtrang-cloud/rowmora-data-reconciliation.git
+cd rowmora-data-reconciliation
 ```
 
 Install dependencies:
@@ -172,7 +179,7 @@ The files are located in `public/samples/`:
 Both datasets contain the following columns:
 
 | Column | Description |
-|---|---|
+| --- | --- |
 | `sku` | Unique product identifier |
 | `product_name` | Product name |
 | `category` | Product category |
