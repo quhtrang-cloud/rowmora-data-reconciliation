@@ -116,7 +116,7 @@
 .theme-toggle:focus-visible,
 .site-header__about:focus-visible,
 .about-dialog button:focus-visible {
-  outline: 3px solid var(--color-accent);
+  outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
 
@@ -468,7 +468,7 @@
 }
 
 .how-it-works__number {
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 600;

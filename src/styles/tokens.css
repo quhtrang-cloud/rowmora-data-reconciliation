@@ -1,4 +1,4 @@
-
+/* Rowmora design tokens — accessibility refinements */
 :root {
   color-scheme: light;
   --color-primary: #214b37;
@@ -10,7 +10,7 @@
   --color-surface-sage: #edf2ea;
   --color-text: #232c27;
   --color-text-secondary: #58655d;
-  --color-text-muted: #707c73;
+  --color-text-muted: #5d6a61;
   --color-text-on-primary: #ffffff;
   --color-border: #deded5;
   --color-border-strong: #b6bfb4;
@@ -18,7 +18,9 @@
   --color-sage-dark: #476e53;
   --color-accent: #b99155;
   --color-accent-hover: #9f7c45;
+  --color-accent-text: #88602e;
   --color-accent-soft: #f7eedf;
+  --color-focus: #245b9b;
   --color-success: #246448;
   --color-success-soft: #e5f2e9;
   --color-warning: #855d15;
@@ -71,7 +73,9 @@
   --color-sage-dark: #b8d8bf;
   --color-accent: #d4b47a;
   --color-accent-hover: #e4c997;
+  --color-accent-text: #d4b47a;
   --color-accent-soft: #443a2b;
+  --color-focus: #91baff;
   --color-success: #bce7ca;
   --color-success-soft: #284336;
   --color-warning: #f2d38f;

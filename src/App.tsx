@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./components/ui/Button/Button";
 import { UploadPage, type ParsedFile } from "./features/upload/UploadPage";
@@ -19,10 +18,12 @@ function urlForPage(page: Page): string {
   return `${window.location.pathname}${window.location.search}${hash}`;
 }
 
+// Illustrative inventory comparison: warehouse (A) vs online store (B).
+// These figures are fictional and are not calculated from uploaded files.
 const exampleChanges = [
-  { key: "P002", field: "Quantity", sourceA: "36", sourceB: "29", status: "Changed", className: "changed" },
-  { key: "P046", field: "New product", sourceA: "—", sourceB: "Present", status: "Added", className: "added" },
-  { key: "P007", field: "Product record", sourceA: "Present", sourceB: "—", status: "Removed", className: "removed" },
+  { key: "SKU-1042", field: "Stock quantity", sourceA: "48", sourceB: "35", status: "Changed", className: "changed" },
+  { key: "SKU-1086", field: "Product", sourceA: "—", sourceB: "Desk lamp", status: "Added", className: "added" },
+  { key: "SKU-1021", field: "Product", sourceA: "Notebook", sourceB: "—", status: "Removed", className: "removed" },
 ] as const;
 
 function ThemeIcon({ theme }: { theme: "light" | "dark" }) {
@@ -171,7 +172,7 @@ function App() {
               <Button type="button" onClick={() => navigateTo("upload")}>Start a comparison</Button>
             </div>
 
-            <p className="welcome__note">Supports CSV and Excel (.xlsx) files. No account required.</p>
+            <p className="welcome__note">Compare CSV and Excel (.xlsx) files. No sign-up required.</p>
           </div>
 
           <section className="welcome-preview" aria-label="Example file comparison results">
@@ -187,27 +188,27 @@ function App() {
             <div className="welcome-preview__body">
               <div className="welcome-preview__heading">
                 <div>
-                  <span className="welcome-preview__overline">INVENTORY REVIEW</span>
+                  <span className="welcome-preview__overline">INVENTORY DATA COMPARISON</span>
                   <h2>Comparison results</h2>
                 </div>
-                <span className="welcome-preview__fileTag">CSV</span>
+                <span className="welcome-preview__fileTag">XLSX</span>
               </div>
 
               <div className="welcome-preview__stats">
                 <div className="welcome-preview__stat welcome-preview__stat--added">
-                  <strong>8</strong>
+                  <strong>4</strong>
                   <span>Added</span>
                 </div>
                 <div className="welcome-preview__stat welcome-preview__stat--removed">
-                  <strong>5</strong>
+                  <strong>1</strong>
                   <span>Removed</span>
                 </div>
                 <div className="welcome-preview__stat welcome-preview__stat--changed">
-                  <strong>18</strong>
+                  <strong>2</strong>
                   <span>Changed</span>
                 </div>
                 <div className="welcome-preview__stat welcome-preview__stat--unchanged">
-                  <strong>12</strong>
+                  <strong>29</strong>
                   <span>Unchanged</span>
                 </div>
               </div>
@@ -243,7 +244,7 @@ function App() {
 
               <div className="welcome-preview__bottom">
                 <span className="welcome-preview__legendDot" aria-hidden="true" />
-                Illustrative data · Added = only in B; Removed = only in A.
+                Illustrative example · 36 records compared · 3 results shown
               </div>
             </div>
           </section>
@@ -254,7 +255,7 @@ function App() {
           <span className="how-it-works__eyebrow">A SIMPLE WORKFLOW</span>
           <h2 id="how-it-works-title" className="how-it-works__title">How it works</h2>
           <p className="how-it-works__intro">
-            From two data sources to a clearer view of what needs attention.
+            From different data sources to a clearer view of what needs attention.
           </p>
           <div className="how-it-works__grid">
             <article className="how-it-works__step">
@@ -264,13 +265,13 @@ function App() {
             </article>
             <article className="how-it-works__step">
               <span className="how-it-works__number" aria-hidden="true">02</span>
-              <h3>Match your records</h3>
-              <p>Select a shared column, such as an ID or booking reference, to match records.</p>
+              <h3>Match and map</h3>
+              <p>Choose matching keys and map corresponding columns, even when their names differ.</p>
             </article>
             <article className="how-it-works__step">
               <span className="how-it-works__number" aria-hidden="true">03</span>
-              <h3>Review the results</h3>
-              <p>Explore differences, missing records, and duplicate keys that need a closer look.</p>
+              <h3>Review differences</h3>
+              <p>Explore changed or missing records, compare values, and investigate matching issues.</p>
             </article>
           </div>
         </div>
@@ -342,29 +343,29 @@ function App() {
 
             <h2 id="about-title">A clearer way to work with data.</h2>
             <p id="about-description" className="about-dialog__intro">
-              Rowmora helps you compare two data sources, identify missing or different records, and review issues that need attention. Choose CSV or Excel files, match records using a shared column, and explore the results in one place.
+              Rowmora is a React and TypeScript application for comparing CSV and Excel datasets from different sources. Match records, map corresponding columns, and examine field-level differences in one place. Records with missing or duplicate matching keys are flagged separately for review. Development is ongoing, with further reconciliation features planned.
             </p>
 
             <div className="about-dialog__features">
               <div className="about-dialog__feature">
                 <span className="about-dialog__featureIcon" aria-hidden="true">01</span>
                 <div>
-                  <h3>Compare files</h3>
-                  <p>Choose CSV or Excel sources and match records using a shared column.</p>
+                  <h3>Prepare sources</h3>
+                  <p>Upload CSV or Excel files and choose worksheets and header rows.</p>
                 </div>
               </div>
               <div className="about-dialog__feature">
                 <span className="about-dialog__featureIcon" aria-hidden="true">02</span>
                 <div>
-                  <h3>Spot differences</h3>
-                  <p>Find records present in only one source and values that differ.</p>
+                  <h3>Compare records</h3>
+                  <p>Match records by identifier and compare mapped fields across sources.</p>
                 </div>
               </div>
               <div className="about-dialog__feature">
                 <span className="about-dialog__featureIcon" aria-hidden="true">03</span>
                 <div>
-                  <h3>Review results</h3>
-                  <p>Filter differences and inspect duplicate or missing keys.</p>
+                  <h3>Investigate issues</h3>
+                  <p>Review differences and inspect records with missing or duplicate keys.</p>
                 </div>
               </div>
             </div>

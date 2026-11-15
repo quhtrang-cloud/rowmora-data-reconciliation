@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button/Button";
 import { parseCsv, type CsvRow } from "../../utils/parseCsv";
 import {
@@ -34,10 +34,12 @@ type FileSheet = {
 
 const HEADER_ROW_OPTIONS = Array.from({ length: 100 }, (_, index) => index + 1);
 
-const samplePaths = [
-  "/samples/inventory-old.csv",
-  "/samples/inventory-new.csv",
-];
+type SampleKind = "csv" | "excel";
+
+const samplePaths: Record<SampleKind, string[]> = {
+  csv: ["/samples/inventory-old.csv", "/samples/inventory-new.csv"],
+  excel: ["/samples/rowmora-reconciliation-sample.xlsx"],
+};
 
 function isExcelFile(file: File): boolean {
   return file.name.toLowerCase().endsWith(".xlsx");
@@ -57,6 +59,8 @@ function FilePreview({
   const [headerRows, setHeaderRows] = useState<number[]>([1, 1]);
   const [isParsing, setIsParsing] = useState(true);
   const [error, setError] = useState("");
+  const settingsRef = useRef<HTMLElement>(null);
+  const hasGuidedToSettings = useRef(false);
 
   // Step 1: Discover worksheets in Excel files.
   useEffect(() => {
@@ -101,7 +105,20 @@ function FilePreview({
         if (!cancelled) {
           setFileSheets(results);
           setSelectedSheets(
-            results.map((result) => result.sheetNames[0] ?? "")
+            results.map((result, index) => {
+              // When the same workbook is used twice, start with two
+              // different worksheets so the user can compare them.
+              if (
+                index === 1 &&
+                files[0] === files[1] &&
+                result.sheetNames.length > 1
+              ) {
+                return result.sheetNames.includes("Talent Agreements")
+                  ? "Talent Agreements"
+                  : result.sheetNames[1];
+              }
+              return result.sheetNames[0] ?? "";
+            })
           );
           setHeaderRows(results.map(() => 1));
         }
@@ -214,6 +231,30 @@ function FilePreview({
     );
   }
 
+  // Guide the user once, after both files have been successfully parsed.
+  // Do not jump again when they change a worksheet or header row.
+  useEffect(() => {
+    if (
+      hasGuidedToSettings.current ||
+      isLoadingSample ||
+      isParsing ||
+      error ||
+      parsedFiles.length !== 2
+    ) {
+      return;
+    }
+
+    hasGuidedToSettings.current = true;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    settingsRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion ? "instant" : "smooth",
+      block: "start",
+    });
+  }, [parsedFiles, isParsing, isLoadingSample, error]);
+
   const canContinue =
     parsedFiles.length === 2 &&
     !isLoadingSample &&
@@ -223,7 +264,12 @@ function FilePreview({
   return (
     <>
       {fileSheets && fileSheets.length === 2 && (
-        <section className={styles.previewSection} aria-labelledby="configure-title">
+        <section ref={settingsRef} className={`${styles.previewSection} ${styles.settingsSection}`} aria-labelledby="configure-title">
+          {!isParsing && !error && parsedFiles.length === 2 && (
+            <p className={styles.readyMessage} role="status">
+              <span aria-hidden="true">✓</span> Files ready for review
+            </p>
+          )}
           <h2 id="configure-title">Review your file settings</h2>
           <p className={styles.description}>
             Choose the worksheet and column headings before comparing your data.
@@ -385,34 +431,59 @@ export function UploadPage({
 }: UploadPageProps) {
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [sampleError, setSampleError] = useState("");
+  const [activeSample, setActiveSample] = useState<SampleKind | null>(null);
 
-  async function handleTrySample() {
+  async function handleTrySample(kind: SampleKind) {
     setIsLoadingSample(true);
     setSampleError("");
 
     try {
-      const sampleFiles = await Promise.all(
-        samplePaths.map(async (path) => {
-          const response = await fetch(path);
+      let sampleFiles: File[];
 
-          if (!response.ok) {
-            throw new Error("Unable to load sample data.");
+      if (kind === "excel") {
+        const path = samplePaths.excel[0];
+        const response = await fetch(path);
+        if (!response.ok) {
+          throw new Error("Unable to load Excel sample.");
+        }
+        const blob = await response.blob();
+        const signature = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+        if (
+          signature[0] !== 0x50 ||
+          signature[1] !== 0x4b ||
+          signature[2] !== 0x03 ||
+          signature[3] !== 0x04
+        ) {
+          throw new Error("Excel sample not found. Check public/samples/rowmora-reconciliation-sample.xlsx.");
+        }
+        const workbook = new File(
+          [blob],
+          "rowmora-reconciliation-sample.xlsx",
+          {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           }
+        );
+        // The current comparison workflow accepts two sources.
+        // Reuse the same workbook, with a separate sheet for each source.
+        sampleFiles = [workbook, workbook];
+      } else {
+        sampleFiles = await Promise.all(
+          samplePaths.csv.map(async (path) => {
+            const response = await fetch(path);
+            if (!response.ok) {
+              throw new Error("Unable to load CSV sample.");
+            }
+            const blob = await response.blob();
+            const name = path.split("/").pop() ?? "sample.csv";
+            return new File([blob], name, { type: "text/csv" });
+          })
+        );
+      }
 
-          const blob = await response.blob();
-          const name = path.split("/").pop() ?? "sample.csv";
-
-          return new File([blob], name, {
-            type: "text/csv",
-          });
-        })
-      );
-
+      setActiveSample(kind);
       onFilesChange(sampleFiles);
-    } catch {
-      setSampleError(
-        "Couldn't load the sample files. Please try again."
-      );
+    } catch (err) {
+      setSampleError(err instanceof Error ? err.message : "Couldn't load the sample files. Please try again.");
     } finally {
       setIsLoadingSample(false);
     }
@@ -420,6 +491,7 @@ export function UploadPage({
 
   function handleFilesChange(nextFiles: File[]) {
     setSampleError("");
+    setActiveSample(null);
     onFilesChange(nextFiles);
   }
 
@@ -440,25 +512,72 @@ export function UploadPage({
           onFilesChange={handleFilesChange}
         />
 
-        <div className={styles.sampleSection}>
-          <div>
-            <h2>Want to try it first?</h2>
-            <p>
-              See how Rowmora works with sample spreadsheets.
-            </p>
-          </div>
-
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleTrySample}
-            disabled={isLoadingSample}
-          >
-            {isLoadingSample
-              ? "Loading sample..."
-              : "Try sample data"}
-          </Button>
-        </div>
+        {activeSample && files.length === 2 ? (
+          <section className={styles.sampleCompact} aria-label="Selected sample">
+            <div>
+              <p className={styles.sampleCompactTitle}>
+                {activeSample === "excel"
+                  ? "Event reconciliation sample"
+                  : "Inventory comparison sample"}
+              </p>
+              <p className={styles.sampleCompactDescription}>
+                {activeSample === "excel"
+                  ? "Excel workbook loaded - review the worksheets below."
+                  : "CSV files loaded - review the data below."}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={styles.changeSampleButton}
+              onClick={() => setActiveSample(null)}
+            >
+              Change sample
+            </button>
+          </section>
+        ) : (
+          <section className={styles.sampleSection} aria-labelledby="sample-title">
+            <div className={styles.sampleIntro}>
+              <h2 id="sample-title">Want to try it first?</h2>
+              <p>Choose a sample to explore how Rowmora works.</p>
+            </div>
+            <div className={styles.sampleOptions}>
+              <div className={styles.sampleOption}>
+                <div className={styles.sampleOptionText}>
+                  <div className={styles.sampleOptionHeading}>
+                    <h3>Inventory comparison</h3>
+                    <span className={styles.sampleFormat}>CSV</span>
+                  </div>
+                  <p>Compare two inventory files.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void handleTrySample("csv")}
+                  disabled={isLoadingSample}
+                >
+                  {isLoadingSample ? "Loading..." : "Use CSV sample"}
+                </Button>
+              </div>
+              <div className={styles.sampleOption}>
+                <div className={styles.sampleOptionText}>
+                  <div className={styles.sampleOptionHeading}>
+                    <h3>Event reconciliation</h3>
+                    <span className={styles.sampleFormat}>XLSX</span>
+                  </div>
+                  <p>Compare bookings, finance records, or agreements.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void handleTrySample("excel")}
+                  disabled={isLoadingSample}
+                >
+                  {isLoadingSample ? "Loading..." : "Use Excel sample"}
+                </Button>
+              </div>
+            </div>
+          </section>
+        )}
 
         {sampleError && (
           <p role="alert" className={styles.error}>

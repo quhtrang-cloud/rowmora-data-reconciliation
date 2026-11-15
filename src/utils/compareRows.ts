@@ -7,10 +7,17 @@ export type RowStatus =
   | "changed"
   | "unchanged";
 
+export type ColumnMapping = {
+  sourceA: string;
+  sourceB: string;
+};
+
 export type RowDifference = {
   column: string;
   oldValue: string;
   newValue: string;
+  sourceAColumn?: string;
+  sourceBColumn?: string;
 };
 
 export type ComparisonRow = {
@@ -40,6 +47,7 @@ export type ComparisonResult = {
   sharedColumns: string[];
   sourceAOnlyColumns: string[];
   sourceBOnlyColumns: string[];
+  mappings: ColumnMapping[];
 };
 
 type IndexedRow = {
@@ -50,7 +58,6 @@ type IndexedRow = {
 type SourceIndex = {
   records: Map<string, IndexedRow[]>;
   issues: ComparisonIssue[];
-  missingKeyRows: IndexedRow[];
 };
 
 function indexSource(
@@ -59,39 +66,34 @@ function indexSource(
   source: IssueSource
 ): SourceIndex {
   const records = new Map<string, IndexedRow[]>();
-  const missingKeyRows: IndexedRow[] = [];
+  const missing: IndexedRow[] = [];
   const issues: ComparisonIssue[] = [];
 
   rows.forEach((row, index) => {
-    // Row number here refers to the data row position,
-    // not the original Excel worksheet row number.
-    const rowNumber = index + 1;
-    const key = (row[matchingColumn] ?? "").trim();
-
-    const indexedRow: IndexedRow = {
+    const item: IndexedRow = {
       row,
-      rowNumber,
+      rowNumber: index + 1,
     };
 
+    const key = (row[matchingColumn] ?? "").trim();
+
     if (!key) {
-      missingKeyRows.push(indexedRow);
+      missing.push(item);
       return;
     }
 
-    const existing = records.get(key) ?? [];
-    existing.push(indexedRow);
-    records.set(key, existing);
+    const matches = records.get(key) ?? [];
+    matches.push(item);
+    records.set(key, matches);
   });
 
-  if (missingKeyRows.length > 0) {
+  if (missing.length > 0) {
     issues.push({
       type: "missing_key",
       source,
       key: "",
-      rowNumbers: missingKeyRows.map(
-        (item) => item.rowNumber
-      ),
-      rows: missingKeyRows.map((item) => item.row),
+      rowNumbers: missing.map((item) => item.rowNumber),
+      rows: missing.map((item) => item.row),
     });
   }
 
@@ -101,9 +103,7 @@ function indexSource(
         type: "duplicate_key",
         source,
         key,
-        rowNumbers: matches.map(
-          (item) => item.rowNumber
-        ),
+        rowNumbers: matches.map((item) => item.rowNumber),
         rows: matches.map((item) => item.row),
       });
     }
@@ -112,17 +112,28 @@ function indexSource(
   return {
     records,
     issues,
-    missingKeyRows,
   };
 }
 
 export function compareRows(
   sourceARows: CsvRow[],
   sourceBRows: CsvRow[],
-  matchingColumn: string
+  matchingColumn: string,
+  options?: {
+    sourceBMatchingColumn?: string;
+    columnMappings?: ColumnMapping[];
+  }
 ): ComparisonResult {
-  if (!matchingColumn.trim()) {
-    throw new Error("Please select a matching column.");
+  const sourceBMatchingColumn =
+    options?.sourceBMatchingColumn ?? matchingColumn;
+
+  if (
+    !matchingColumn.trim() ||
+    !sourceBMatchingColumn.trim()
+  ) {
+    throw new Error(
+      "Select matching columns in both sources."
+    );
   }
 
   if (
@@ -144,23 +155,81 @@ export function compareRows(
 
   if (
     !sourceAColumns.includes(matchingColumn) ||
-    !sourceBColumns.includes(matchingColumn)
+    !sourceBColumns.includes(sourceBMatchingColumn)
   ) {
     throw new Error(
-      `The matching column "${matchingColumn}" must exist in both sources.`
+      "The selected matching columns must exist in their sources."
     );
+  }
+
+  // Automatically map columns with identical names.
+  const defaultMappings: ColumnMapping[] =
+    sourceAColumns
+      .filter(
+        (column) =>
+          column !== matchingColumn &&
+          column !== sourceBMatchingColumn &&
+          sourceBColumns.includes(column)
+      )
+      .map((column) => ({
+        sourceA: column,
+        sourceB: column,
+      }));
+
+  const mappings =
+    options?.columnMappings ?? defaultMappings;
+
+  const usedA = new Set<string>();
+  const usedB = new Set<string>();
+
+  // Validate mappings before comparing records.
+  for (const mapping of mappings) {
+    if (
+      !sourceAColumns.includes(mapping.sourceA) ||
+      !sourceBColumns.includes(mapping.sourceB)
+    ) {
+      throw new Error(
+        "A mapped column is missing from its source."
+      );
+    }
+
+    if (
+      mapping.sourceA === matchingColumn ||
+      mapping.sourceB === sourceBMatchingColumn
+    ) {
+      throw new Error(
+        "Matching key columns cannot be compared as data fields."
+      );
+    }
+
+    if (
+      usedA.has(mapping.sourceA) ||
+      usedB.has(mapping.sourceB)
+    ) {
+      throw new Error(
+        "Each column can only be mapped once."
+      );
+    }
+
+    usedA.add(mapping.sourceA);
+    usedB.add(mapping.sourceB);
   }
 
   const sharedColumns = sourceAColumns.filter(
     (column) => sourceBColumns.includes(column)
   );
 
+  // Columns not included in the mapping.
   const sourceAOnlyColumns = sourceAColumns.filter(
-    (column) => !sourceBColumns.includes(column)
+    (column) =>
+      !usedA.has(column) &&
+      column !== matchingColumn
   );
 
   const sourceBOnlyColumns = sourceBColumns.filter(
-    (column) => !sourceAColumns.includes(column)
+    (column) =>
+      !usedB.has(column) &&
+      column !== sourceBMatchingColumn
   );
 
   const sourceA = indexSource(
@@ -171,7 +240,7 @@ export function compareRows(
 
   const sourceB = indexSource(
     sourceBRows,
-    matchingColumn,
+    sourceBMatchingColumn,
     "B"
   );
 
@@ -185,79 +254,78 @@ export function compareRows(
     ...sourceB.records.keys(),
   ]);
 
-  const comparisonRows: ComparisonRow[] = [];
+  const rows: ComparisonRow[] = [];
 
   for (const key of allKeys) {
-    const sourceAMatches =
-      sourceA.records.get(key) ?? [];
+    const a = sourceA.records.get(key) ?? [];
+    const b = sourceB.records.get(key) ?? [];
 
-    const sourceBMatches =
-      sourceB.records.get(key) ?? [];
-
-    // If a key is duplicated in either source,
-    // exclude the entire key group from automatic matching.
-    if (
-      sourceAMatches.length > 1 ||
-      sourceBMatches.length > 1
-    ) {
+    // Exclude duplicate keys from automatic matching.
+    if (a.length > 1 || b.length > 1) {
       continue;
     }
 
-    const sourceARow = sourceAMatches[0]?.row;
-    const sourceBRow = sourceBMatches[0]?.row;
+    const oldRow = a[0]?.row;
+    const newRow = b[0]?.row;
 
-    if (!sourceARow && sourceBRow) {
-      comparisonRows.push({
+    if (!oldRow && newRow) {
+      rows.push({
         key,
         status: "added",
-        newRow: sourceBRow,
+        newRow,
         differences: [],
       });
+
       continue;
     }
 
-    if (sourceARow && !sourceBRow) {
-      comparisonRows.push({
+    if (oldRow && !newRow) {
+      rows.push({
         key,
         status: "removed",
-        oldRow: sourceARow,
+        oldRow,
         differences: [],
       });
+
       continue;
     }
 
-    if (!sourceARow || !sourceBRow) {
+    if (!oldRow || !newRow) {
       continue;
     }
 
     const differences: RowDifference[] = [];
 
-    // Compare only columns present in both sources.
-    for (const column of sharedColumns) {
-      if (column === matchingColumn) {
-        continue;
-      }
+    // Compare the explicitly mapped column pairs.
+    for (const mapping of mappings) {
+      const oldValue =
+        oldRow[mapping.sourceA] ?? "";
 
-      const oldValue = sourceARow[column] ?? "";
-      const newValue = sourceBRow[column] ?? "";
+      const newValue =
+        newRow[mapping.sourceB] ?? "";
 
       if (oldValue !== newValue) {
         differences.push({
-          column,
+          column:
+            mapping.sourceA === mapping.sourceB
+              ? mapping.sourceA
+              : `${mapping.sourceA} / ${mapping.sourceB}`,
+          sourceAColumn: mapping.sourceA,
+          sourceBColumn: mapping.sourceB,
           oldValue,
           newValue,
         });
       }
     }
 
-    comparisonRows.push({
+    rows.push({
       key,
       status:
         differences.length > 0
           ? "changed"
           : "unchanged",
-      oldRow: sourceARow,
-      newRow: sourceBRow,
+      oldRow,
+      newRow,
       differences,
     });
   }
@@ -269,16 +337,17 @@ export function compareRows(
     unchanged: 0,
   };
 
-  for (const row of comparisonRows) {
+  for (const row of rows) {
     summary[row.status] += 1;
   }
 
   return {
-    rows: comparisonRows,
+    rows,
     summary,
     issues,
     sharedColumns,
     sourceAOnlyColumns,
     sourceBOnlyColumns,
+    mappings,
   };
 }
