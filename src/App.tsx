@@ -270,8 +270,8 @@ function App() {
             </article>
             <article className="how-it-works__step">
               <span className="how-it-works__number" aria-hidden="true">03</span>
-              <h3>Review differences</h3>
-              <p>Explore changed or missing records, compare values, and investigate matching issues.</p>
+              <h3>Review and export</h3>
+              <p>Explore differences, investigate matching issues, and export results to CSV or Excel.</p>
             </article>
           </div>
         </div>

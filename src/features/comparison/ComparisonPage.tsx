@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button/Button";
 import type { ParsedFile } from "../upload/UploadPage";
@@ -14,6 +13,7 @@ import {
   exportIssuesCsv,
   exportComparisonExcel,
 } from "../../utils/exportComparison";
+import { getDifferenceSegments } from "../../utils/highlightDifferences";
 import styles from "./ComparisonPage.module.css";
 
 type ComparisonPageProps = {
@@ -44,6 +44,50 @@ function formatValue(value: string | undefined): string {
   return value === undefined || value === ""
     ? "(empty)"
     : value;
+}
+
+function HighlightedValue({
+  value,
+  otherValue,
+}: {
+  value: string;
+  otherValue: string;
+}) {
+  if (value === "") {
+    return <span>(empty)</span>;
+  }
+
+  // Numeric comparisons are easier to scan when the whole value is marked.
+  // Only use this mode when both values are plain numbers (not mixed text).
+  const numericPattern = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/;
+  const isNumericChange =
+    numericPattern.test(value.trim()) &&
+    numericPattern.test(otherValue.trim()) &&
+    value !== otherValue;
+
+  if (isNumericChange) {
+    return (
+      <span className={styles.differenceValue}>
+        <mark className={styles.differenceHighlight}>{value}</mark>
+      </span>
+    );
+  }
+
+  const segments = getDifferenceSegments(value, otherValue);
+
+  return (
+    <span className={styles.differenceValue}>
+      {segments.map((segment, index) =>
+        segment.changed ? (
+          <mark key={index} className={styles.differenceHighlight}>
+            {segment.text}
+          </mark>
+        ) : (
+          <span key={index}>{segment.text}</span>
+        )
+      )}
+    </span>
+  );
 }
 
 function getIssueLabel(issue: ComparisonIssue): string {
@@ -1431,18 +1475,28 @@ export default function ComparisonPage({
                 </div>
               </div>
 
-              <p
-                className={styles.resultsCount}
-                role="status"
-                aria-live="polite"
-              >
-                Showing {visibleRows.length} of{" "}
-                {result.rows.length} records
-                {activeFilter !== "all"
-                  ? ` · ${activeFilter}`
-                  : ""}
-                .
-              </p>
+              <div className={styles.resultsMeta}>
+                <p
+                  className={styles.resultsCount}
+                  role="status"
+                  aria-live="polite"
+                >
+                  Showing {visibleRows.length} of{" "}
+                  {result.rows.length} records
+                  {activeFilter !== "all"
+                    ? ` · ${activeFilter}`
+                    : ""}
+                  .
+                </p>
+
+                <p className={styles.highlightLegend}>
+                  <span
+                    className={styles.highlightLegendSwatch}
+                    aria-hidden="true"
+                  />
+                  Highlighted text shows where values differ between sources.
+                </p>
+              </div>
 
               <div
                 className={styles.tableWrapper}
@@ -1570,9 +1624,10 @@ export default function ComparisonPage({
                                 <td>
                                   {row.status ===
                                   "changed"
-                                    ? formatValue(
-                                        difference.oldValue
-                                      )
+                                    ? <HighlightedValue
+                                        value={difference.oldValue}
+                                        otherValue={difference.newValue}
+                                      />
                                     : row.status ===
                                         "removed"
                                       ? "Only in Source A"
@@ -1585,9 +1640,10 @@ export default function ComparisonPage({
                                 <td>
                                   {row.status ===
                                   "changed"
-                                    ? formatValue(
-                                        difference.newValue
-                                      )
+                                    ? <HighlightedValue
+                                        value={difference.newValue}
+                                        otherValue={difference.oldValue}
+                                      />
                                     : row.status ===
                                         "added"
                                       ? "Only in Source B"

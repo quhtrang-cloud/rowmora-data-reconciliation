@@ -939,11 +939,40 @@
   padding: var(--space-2) var(--space-4);
 }
 
+.resultsMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-bottom: var(--space-4);
+}
+
 .resultsCount {
-  margin: 0 0 var(--space-4);
+  margin: 0;
   color: var(--color-text-secondary);
   font-size: 0.875rem;
   line-height: 1.6;
+}
+
+.highlightLegend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.highlightLegendSwatch {
+  display: inline-block;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #b18a43;
+  border-radius: 3px;
+  background: #f0dcac;
 }
 
 .tableWrapper {
@@ -1196,4 +1225,21 @@
   .exportButtonPrimary {
     transition: none;
   }
+}
+
+/* Difference highlighting: readable in both light and dark themes. */
+.differenceValue {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.differenceHighlight {
+  padding: 1px 3px;
+  border: 1px solid #b18a43;
+  border-radius: 4px;
+  background: #f0dcac;
+  color: #292b25;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  font-weight: 700;
 }
